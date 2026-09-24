@@ -171,12 +171,28 @@ function outputBytes(metafiles) {
 	);
 }
 
+function quoteForCmd(value) {
+	if (value.length === 0 || /[\s"&|<>^]/u.test(value)) {
+		return `"${value.replaceAll('"', '""')}"`;
+	}
+	return value;
+}
+
+function runNpm(args, options) {
+	if (process.platform !== "win32") {
+		execFileSync("npm", args, options);
+		return;
+	}
+	const command = ["npm", ...args.map(quoteForCmd)].join(" ");
+	execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", command], options);
+}
+
 // The bundle's `step` entry is the compiled app. Compile it here (against the
 // coding-agent dist produced by build:unbundled) so coding-agent's `build`
 // stays self-contained despite the entry now living in the app package. Always
 // rebuild rather than trusting a pre-existing dist/main.js: a stale app compile
 // from an earlier checkout would otherwise be baked into the bundle.
-execFileSync("npm", ["--prefix", appEntryDir, "run", "build"], { stdio: "inherit", cwd: repoRoot });
+runNpm(["--prefix", appEntryDir, "run", "build"], { stdio: "inherit", cwd: repoRoot });
 
 for (const entry of [
 	join(appEntryDistDir, "main.js"),
